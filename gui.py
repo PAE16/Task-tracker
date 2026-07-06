@@ -531,8 +531,8 @@ class TaskTrackerApp(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
-        self.main_layout.setSpacing(14)
-        self.main_layout.setContentsMargins(16, 16, 16, 16)
+        self.main_layout.setSpacing(8)
+        self.main_layout.setContentsMargins(14, 12, 14, 12)
 
         # Инициализация атрибутов
         self.tasks = []
@@ -565,22 +565,22 @@ class TaskTrackerApp(QMainWindow):
         """Заголовок приложения."""
         header = QFrame()
         header.setObjectName("headerCard")
-        header.setMinimumHeight(118)
+        header.setMinimumHeight(70)
         shadow = QGraphicsDropShadowEffect(header)
-        shadow.setBlurRadius(14)
-        shadow.setOffset(0, 4)
-        shadow.setColor(QColor(0, 0, 0, 30))
+        shadow.setBlurRadius(8)
+        shadow.setOffset(0, 2)
+        shadow.setColor(QColor(0, 0, 0, 20))
         header.setGraphicsEffect(shadow)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(22, 20, 22, 20)
-        header_layout.setSpacing(14)
+        header_layout.setContentsMargins(16, 12, 16, 12)
+        header_layout.setSpacing(10)
 
         text_block = QVBoxLayout()
-        text_block.setSpacing(4)
+        text_block.setSpacing(2)
 
         title = QLabel("Task Tracker")
         title.setObjectName("heroTitle")
-        title.setFont(QFont(self.font().family(), 22, QFont.Bold))
+        title.setFont(QFont(self.font().family(), 16, QFont.Bold))
         text_block.addWidget(title)
 
         header_layout.addLayout(text_block)
