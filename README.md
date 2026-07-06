@@ -278,6 +278,3 @@ chmod +x dist/TaskTracker
 
 Если у тебя есть вопросы или предложения по улучшению — создай **Issue** на GitHub! 
 
----
-
-**Made with ❤️ inspired by Nothing**
