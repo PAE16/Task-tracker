@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QDate, QTimer, QEasingCurve, QPropertyAnimation, QRect
 from PyQt5.QtGui import QFont, QColor, QBrush, QPalette
 
-from theme import apply_theme, theme_data, resolve_theme, THEME_MODES, get_active_theme_mode, detect_system_theme
+from theme import apply_theme, theme_data, resolve_theme
 
 from database import (
     get_all_tasks, get_all_projects, get_all_assignees,
@@ -26,57 +26,6 @@ from charts import (
 )
 
 
-class ThemeDialog(QDialog):
-    """Диалог выбора режима оформления приложения."""
-
-    def __init__(self, current_mode, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Тема приложения")
-        self.setMinimumWidth(360)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-
-        title = QLabel("Выберите режим темы")
-        title.setStyleSheet("font-size: 16px; font-weight: 700;")
-        layout.addWidget(title)
-
-        hint = QLabel("Системный режим подстраивается под тему macOS или Windows.")
-        hint.setWordWrap(True)
-        hint.setStyleSheet(f"color: {theme_data(resolve_theme(current_mode))['muted']};")
-        layout.addWidget(hint)
-
-        self.button_group = QButtonGroup(self)
-        self.system_radio = QRadioButton("Как в системе")
-        self.light_radio = QRadioButton("Светлая")
-        self.dark_radio = QRadioButton("Тёмная")
-
-        self.button_group.addButton(self.system_radio)
-        self.button_group.addButton(self.light_radio)
-        self.button_group.addButton(self.dark_radio)
-
-        layout.addWidget(self.system_radio)
-        layout.addWidget(self.light_radio)
-        layout.addWidget(self.dark_radio)
-
-        if current_mode == "dark":
-            self.dark_radio.setChecked(True)
-        elif current_mode == "light":
-            self.light_radio.setChecked(True)
-        else:
-            self.system_radio.setChecked(True)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-    def selected_mode(self):
-        if self.dark_radio.isChecked():
-            return "dark"
-        if self.light_radio.isChecked():
-            return "light"
-        return "system"
 
 
 class StyledPopupDialog(QDialog):
@@ -526,8 +475,6 @@ class TaskTrackerApp(QMainWindow):
         self.setMinimumSize(1200, 800)  # Минимальный размер адаптивен
         self.resize(1600, 1000)
 
-        self._build_menu()
-
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.main_layout = QVBoxLayout(self.central_widget)
@@ -548,18 +495,6 @@ class TaskTrackerApp(QMainWindow):
 
         self.statusBar().showMessage("Готово")
         self.refresh_data()
-
-        self.theme_watch_timer = QTimer(self)
-        self.theme_watch_timer.setInterval(5000)
-        self.theme_watch_timer.timeout.connect(self._sync_system_theme)
-        self.theme_watch_timer.start()
-
-    def _build_menu(self):
-        """Создать меню настроек."""
-        menu = self.menuBar().addMenu("Настройки")
-        theme_action = QAction("Тема приложения...", self)
-        theme_action.triggered.connect(self.show_theme_dialog)
-        menu.addAction(theme_action)
 
     def _build_header(self):
         """Заголовок приложения (компактный и адаптивный)."""
@@ -604,47 +539,9 @@ class TaskTrackerApp(QMainWindow):
 
         self.main_layout.addWidget(header)
 
-    def _update_theme_badge(self):
-        """Обновить бадж темы (устаревшее, тема фиксирована)."""
-        pass
-
-    def show_theme_dialog(self):
-        """Открыть диалог темы (отключено, используется светлая тема)."""
-        pass
-
-    def apply_theme_mode(self, mode):
-        """Применяет и сохраняет выбранный режим темы."""
-        self.theme_mode = mode
-        self.resolved_theme = apply_theme(self.app, mode)
-        self.settings.setValue("appearance/theme", mode)
-        self._refresh_section_styles()
-        self._update_theme_badge()
-        self.statusBar().showMessage(f"Тема: {self.theme_badge.text()}", 3000)
-
     def _current_colors(self):
         """Возвращает цвета для текущей темы."""
         return theme_data(self.resolved_theme)
-
-    def _group_box_style(self, accent_color):
-        """Генерирует карточный стиль для секций."""
-        colors = self._current_colors()
-        return f"""
-            QGroupBox {{
-                background-color: {colors['surface']};
-                color: {colors['text']};
-                border: 1px solid {colors['border']};
-                border-radius: 16px;
-                margin-top: 12px;
-                padding-top: 14px;
-                font-weight: 600;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 14px;
-                padding: 0 6px;
-                color: {accent_color};
-            }}
-        """
 
     def _button_style(self, variant="soft"):
         """Генерирует стили для кнопок в теме."""
@@ -687,23 +584,6 @@ class TaskTrackerApp(QMainWindow):
             }}
         """
 
-    def _refresh_section_styles(self):
-        """Переустанавливает инлайн-стили после смены темы."""
-        for dialog in (self.create_dialog, self.filter_dialog, self.analytics_popup):
-            dialog.apply_theme()
-        self._update_table_theme()
-
-    def _sync_system_theme(self):
-        """Синхронизирует UI с системной темой при режиме system."""
-        if self.theme_mode != "system":
-            return
-
-        system_theme = detect_system_theme()
-        if system_theme != self.resolved_theme:
-            self.resolved_theme = apply_theme(self.app, "system")
-            self._refresh_section_styles()
-            self._update_theme_badge()
-            self.statusBar().showMessage(f"Тема: {self.theme_badge.text()}", 3000)
 
     def show_controls_section(self, index):
         """Открывает запрошенный всплывающий диалог."""
@@ -726,7 +606,23 @@ class TaskTrackerApp(QMainWindow):
         """Таблица задач с более плотной и современной визуальной подачей."""
         colors = self._current_colors()
         self.task_group = QGroupBox("Список задач")
-        self.task_group.setStyleSheet(self._group_box_style(colors["accent"]))
+        self.task_group.setStyleSheet(f"""
+            QGroupBox {{
+                background-color: {colors['surface']};
+                color: {colors['text']};
+                border: 1px solid {colors['border']};
+                border-radius: 16px;
+                margin-top: 12px;
+                padding-top: 14px;
+                font-weight: 600;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 14px;
+                padding: 0 6px;
+                color: {colors['accent']};
+            }}
+        """)
         self.task_group.setObjectName("dashboardCard")
         shadow = QGraphicsDropShadowEffect(self.task_group)
         shadow.setBlurRadius(10)
@@ -816,43 +712,6 @@ class TaskTrackerApp(QMainWindow):
         self.task_group.setLayout(layout)
         self.main_layout.addWidget(self.task_group, stretch=1)
 
-    def _update_table_theme(self):
-        """Refresh the inline table styling after a theme change."""
-        if not hasattr(self, "task_table"):
-            return
-        colors = self._current_colors()
-        
-        # Обновить стиль QGroupBox
-        if hasattr(self, "task_group"):
-            self.task_group.setStyleSheet(self._group_box_style(colors["accent"]))
-        
-        # Обновить стиль таблицы
-        self.task_table.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {colors['surface']};
-                alternate-background-color: {colors['surface_alt']};
-                border: 1px solid {colors['border']};
-                gridline-color: {colors['border']};
-                font-size: 12px;
-                color: {colors['text']};
-            }}
-            QTableWidget::item {{
-                padding: 6px 10px;
-                border: none;
-            }}
-            QTableWidget::item:selected {{
-                background-color: {colors['selection']};
-                color: {colors['selection_text']};
-            }}
-            QHeaderView::section {{
-                background-color: {colors['surface_alt']};
-                color: {colors['text']};
-                padding: 5px 8px;
-                font-weight: 700;
-                border: none;
-                border-bottom: 1px solid {colors['border']};
-            }}
-        """)
 
     def refresh_data(self):
         """Обновить все данные в интерфейсе."""
@@ -1006,8 +865,6 @@ class TaskTrackerApp(QMainWindow):
             btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(complete_btn)
             self.task_table.setCellWidget(row_idx, 9, btn_container)
-
-        self._update_table_theme()
 
     def on_cell_double_clicked(self, index):
         """Обработка двойного клика для редактирования ячейки."""

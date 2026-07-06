@@ -42,5 +42,3 @@ python3 main.py
 ```bash
 pyinstaller --onefile --windowed --name "TaskTracker" main.py
 ```
-
-Если нужно — могу подготовить расширенную `README.md` с диаграммой модулей.
