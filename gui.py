@@ -219,58 +219,136 @@ class StyledPopupDialog(QDialog):
         self._open_animation.start()
 
 
+class CompactEditDialog(QDialog):
+    """Компактное окно редактирования задачи (два столбца)."""
+
+    def __init__(self, title, fields_data, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumWidth(380)
+        self.setMaximumWidth(450)
+        self.fields = {}
+        self._build_ui(fields_data)
+
+    def _build_ui(self, fields_data):
+        """Создать интерфейс с двухколонным макетом."""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(8)
+
+        # Основная сетка (две колонки: название | значение)
+        grid = QGridLayout()
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setSpacing(6)
+        grid.setColumnMinimumWidth(0, 100)
+
+        row = 0
+        for field_name, widget in fields_data:
+            label = QLabel(field_name + ":")
+            label.setStyleSheet("font-weight: 600; color: #555;")
+            label.setFixedWidth(90)
+            grid.addWidget(label, row, 0)
+            grid.addWidget(widget, row, 1)
+            self.fields[field_name] = widget
+            row += 1
+
+        layout.addLayout(grid)
+        layout.addSpacing(6)
+
+        # Кнопки
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
+
+        ok_btn = QPushButton("OK")
+        ok_btn.setMinimumWidth(100)
+        ok_btn.clicked.connect(self.accept)
+
+        cancel_btn = QPushButton("Отмена")
+        cancel_btn.setMinimumWidth(100)
+        cancel_btn.clicked.connect(self.reject)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def get_values(self):
+        """Получить значения всех полей."""
+        return {name: widget for name, widget in self.fields.items()}
+
+
 class CreateTaskDialog(StyledPopupDialog):
-    """Попап для создания новой задачи."""
+    """Попап для создания новой задачи (компактный стиль)."""
 
     def __init__(self, parent=None):
-        super().__init__("Создание задачи", parent, min_size=(520, 520))
+        super().__init__("Новая задача", parent, min_size=(420, 320))
         self._build_content()
 
     def _build_content(self):
+        """Компактная форма создания задачи."""
         layout = QVBoxLayout(self.content_page)
-        layout.setSpacing(10)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
+        layout.setContentsMargins(12, 12, 12, 12)
 
-        form = QVBoxLayout()
-        form.setSpacing(10)
+        # Две колонки
+        grid = QGridLayout()
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 1)
+        grid.setSpacing(6)
+        grid.setColumnMinimumWidth(0, 90)
 
+        # Проект
+        grid.addWidget(QLabel("Проект:"), 0, 0)
         self.project_create = QComboBox()
+        grid.addWidget(self.project_create, 0, 1)
+
+        # Описание (важное поле, полная ширина)
+        grid.addWidget(QLabel("Описание:"), 1, 0)
         self.description_create = QLineEdit()
-        self.description_create.setPlaceholderText("Описание задачи")
+        self.description_create.setPlaceholderText("Обязательно")
+        grid.addWidget(self.description_create, 1, 1)
+
+        # Исполнитель
+        grid.addWidget(QLabel("Исполнитель:"), 2, 0)
         self.assignee_create = QLineEdit()
-        self.assignee_create.setPlaceholderText("ФИО исполнителя")
+        self.assignee_create.setPlaceholderText("Обязательно")
+        grid.addWidget(self.assignee_create, 2, 1)
+
+        # Приоритет
+        grid.addWidget(QLabel("Приоритет:"), 3, 0)
         self.priority_create = QComboBox()
         self.priority_create.addItems(["Low", "Medium", "High", "Critical"])
+        grid.addWidget(self.priority_create, 3, 1)
+
+        # Статус
+        grid.addWidget(QLabel("Статус:"), 4, 0)
         self.status_create = QComboBox()
         self.status_create.addItems(["To Do", "In Progress", "Done"])
+        grid.addWidget(self.status_create, 4, 1)
+
+        # Дедлайн
+        grid.addWidget(QLabel("Дедлайн:"), 5, 0)
         self.deadline_create = QDateEdit()
         self.deadline_create.setCalendarPopup(True)
         self.deadline_create.setDate(QDate.currentDate().addDays(7))
+        grid.addWidget(self.deadline_create, 5, 1)
 
-        fields = [
-            ("Проект", self.project_create),
-            ("Описание", self.description_create),
-            ("Исполнитель", self.assignee_create),
-            ("Приоритет", self.priority_create),
-            ("Статус", self.status_create),
-            ("Дедлайн", self.deadline_create),
-        ]
+        layout.addLayout(grid)
+        layout.addSpacing(4)
 
-        for label_text, widget in fields:
-            form.addWidget(QLabel(label_text))
-            form.addWidget(widget)
-
-        layout.addLayout(form)
-
-        buttons_row = QHBoxLayout()
-        create_button = QPushButton("Создать задачу")
+        # Кнопки
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
+        create_button = QPushButton("Создать")
+        create_button.setMinimumWidth(100)
         create_button.clicked.connect(self._create_task)
-        buttons_row.addWidget(create_button)
-        buttons_row.addStretch()
-        layout.addLayout(buttons_row)
-        layout.addStretch()
+        btn_layout.addStretch()
+        btn_layout.addWidget(create_button)
+        layout.addLayout(btn_layout)
 
     def refresh_sources(self):
+        """Обновить список проектов."""
         parent = self.parent_window
         self.project_create.clear()
         for project in parent.projects:
@@ -278,6 +356,7 @@ class CreateTaskDialog(StyledPopupDialog):
         self.status_create.setCurrentIndex(0)
 
     def _create_task(self):
+        """Сохранить новую задачу."""
         parent = self.parent_window
         project_id = self.project_create.currentData()
         description = self.description_create.text().strip()
@@ -1032,80 +1111,55 @@ class TaskTrackerApp(QMainWindow):
         self.apply_filters()
 
     def _open_edit_dialog(self, row_idx):
-        """Открыть диалог редактирования всей задачи."""
+        """Открыть компактный диалог редактирования задачи."""
         if row_idx < 0 or row_idx >= len(self.tasks):
             return
         
         task = self.tasks[row_idx]
         task_id = task["id"]
         
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"Редактировать задачу #{task_id}")
-        dialog.setMinimumWidth(450)
-        layout = QVBoxLayout()
-        
-        # Проект
-        layout.addWidget(QLabel("Проект:"))
+        # Создаём виджеты
         project_combo = QComboBox()
         for project in self.projects:
             project_combo.addItem(project["name"], project["id"])
         project_combo.setCurrentIndex(project_combo.findData(task["project_id"]))
-        layout.addWidget(project_combo)
         
-        # Описание
-        layout.addWidget(QLabel("Описание:"))
         desc_edit = QLineEdit(task["description"])
-        layout.addWidget(desc_edit)
-        
-        # Исполнитель
-        layout.addWidget(QLabel("Исполнитель:"))
         assignee_edit = QLineEdit(task["assignee"])
-        layout.addWidget(assignee_edit)
         
-        # Приоритет
-        layout.addWidget(QLabel("Приоритет:"))
         priority_combo = QComboBox()
         priority_combo.addItems(["Low", "Medium", "High", "Critical"])
         priority_combo.setCurrentText(task["priority"])
-        layout.addWidget(priority_combo)
         
-        # Статус
-        layout.addWidget(QLabel("Статус:"))
         status_combo = QComboBox()
         status_combo.addItems(["To Do", "In Progress", "Done"])
         status_combo.setCurrentText(task["status"])
-        layout.addWidget(status_combo)
         
-        # Дедлайн
-        layout.addWidget(QLabel("Дедлайн:"))
         deadline_edit = QDateEdit()
         deadline_edit.setCalendarPopup(True)
         if task["deadline"]:
             deadline_edit.setDate(QDate.fromString(task["deadline"], "yyyy-MM-dd"))
-        layout.addWidget(deadline_edit)
         
-        # Кнопки
-        btn_layout = QHBoxLayout()
-        save_btn = QPushButton("Сохранить")
-        cancel_btn = QPushButton("Отмена")
-        btn_layout.addWidget(save_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
+        # Создаём компактный диалог
+        fields = [
+            ("Проект", project_combo),
+            ("Описание", desc_edit),
+            ("Исполнитель", assignee_edit),
+            ("Приоритет", priority_combo),
+            ("Статус", status_combo),
+            ("Дедлайн", deadline_edit),
+        ]
         
-        def save_changes():
+        dialog = CompactEditDialog(f"Редактировать задачу #{task_id}", fields, self)
+        
+        if dialog.exec_() == QDialog.Accepted:
+            # Сохранить изменения
             update_task(task_id, "project_id", project_combo.currentData())
             update_task(task_id, "description", desc_edit.text())
             update_task(task_id, "assignee", assignee_edit.text())
             update_task(task_id, "priority", priority_combo.currentText())
             update_task(task_id, "status", status_combo.currentText())
             update_task(task_id, "deadline", deadline_edit.date().toString("yyyy-MM-dd"))
-            dialog.accept()
-        
-        save_btn.clicked.connect(save_changes)
-        cancel_btn.clicked.connect(dialog.reject)
-        
-        dialog.setLayout(layout)
-        if dialog.exec_():
             self.apply_filters()
 
     def delete_selected_task(self):
