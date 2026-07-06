@@ -519,11 +519,11 @@ class TaskTrackerApp(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = settings
-        self.theme_mode = str(self.settings.value("appearance/theme", "system"))
+        self.theme_mode = str(self.settings.value("appearance/theme", "light"))  # Светлая тема по умолчанию
         self.resolved_theme = resolve_theme(self.theme_mode)
 
         self.setWindowTitle("Task Tracker")
-        self.setMinimumSize(1400, 900)
+        self.setMinimumSize(1200, 800)  # Минимальный размер адаптивен
         self.resize(1600, 1000)
 
         self._build_menu()
@@ -562,72 +562,55 @@ class TaskTrackerApp(QMainWindow):
         menu.addAction(theme_action)
 
     def _build_header(self):
-        """Заголовок приложения."""
+        """Заголовок приложения (компактный и адаптивный)."""
         header = QFrame()
         header.setObjectName("headerCard")
-        header.setMinimumHeight(70)
+        header.setMinimumHeight(64)
+        header.setMaximumHeight(80)
         shadow = QGraphicsDropShadowEffect(header)
-        shadow.setBlurRadius(8)
-        shadow.setOffset(0, 2)
-        shadow.setColor(QColor(0, 0, 0, 20))
+        shadow.setBlurRadius(6)
+        shadow.setOffset(0, 1)
+        shadow.setColor(QColor(0, 0, 0, 15))
         header.setGraphicsEffect(shadow)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(16, 12, 16, 12)
-        header_layout.setSpacing(10)
-
-        text_block = QVBoxLayout()
-        text_block.setSpacing(2)
+        header_layout.setContentsMargins(12, 10, 12, 10)
+        header_layout.setSpacing(12)
 
         title = QLabel("Task Tracker")
         title.setObjectName("heroTitle")
-        title.setFont(QFont(self.font().family(), 16, QFont.Bold))
-        text_block.addWidget(title)
-
-        header_layout.addLayout(text_block)
+        title.setFont(QFont(self.font().family(), 14, QFont.Bold))
+        title.setMinimumWidth(120)
+        header_layout.addWidget(title)
         header_layout.addStretch()
 
-        self.theme_badge = QLabel("Minimal")
-        self.theme_badge.setObjectName("themeBadge")
-        header_layout.addWidget(self.theme_badge, 0, Qt.AlignVCenter)
-
-        theme_button = QPushButton("Theme")
-        theme_button.setProperty("variant", "secondary")
-        theme_button.clicked.connect(self.show_theme_dialog)
-        header_layout.addWidget(theme_button, 0, Qt.AlignVCenter)
-
+        # Кнопки действий (без переключения темы)
         self.create_btn = QPushButton("Create")
         self.create_btn.setProperty("variant", "primary")
+        self.create_btn.setMinimumWidth(80)
         self.create_btn.clicked.connect(lambda: self.show_controls_section(0))
-        header_layout.addWidget(self.create_btn, 0, Qt.AlignVCenter)
+        header_layout.addWidget(self.create_btn)
 
         self.filter_btn = QPushButton("Filter")
         self.filter_btn.setProperty("variant", "secondary")
+        self.filter_btn.setMinimumWidth(80)
         self.filter_btn.clicked.connect(lambda: self.show_controls_section(1))
-        header_layout.addWidget(self.filter_btn, 0, Qt.AlignVCenter)
+        header_layout.addWidget(self.filter_btn)
 
         self.analytics_btn = QPushButton("Insights")
         self.analytics_btn.setProperty("variant", "secondary")
+        self.analytics_btn.setMinimumWidth(80)
         self.analytics_btn.clicked.connect(lambda: self.show_controls_section(2))
-        header_layout.addWidget(self.analytics_btn, 0, Qt.AlignVCenter)
-
-        self._update_theme_badge()
+        header_layout.addWidget(self.analytics_btn)
 
         self.main_layout.addWidget(header)
 
     def _update_theme_badge(self):
-        label_map = {
-            "system": "Тема: как в системе",
-            "light": "Тема: светлая",
-            "dark": "Тема: тёмная",
-        }
-        current = self.theme_mode if self.theme_mode in THEME_MODES else "system"
-        self.theme_badge.setText(label_map.get(current, "Тема: как в системе"))
+        """Обновить бадж темы (устаревшее, тема фиксирована)."""
+        pass
 
     def show_theme_dialog(self):
-        """Открывает диалог настроек внешнего вида."""
-        dialog = ThemeDialog(self.theme_mode, self)
-        if dialog.exec_():
-            self.apply_theme_mode(dialog.selected_mode())
+        """Открыть диалог темы (отключено, используется светлая тема)."""
+        pass
 
     def apply_theme_mode(self, mode):
         """Применяет и сохраняет выбранный режим темы."""
