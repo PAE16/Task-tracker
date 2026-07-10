@@ -25,6 +25,10 @@ LIGHT_THEME = {
     "chart_yellow": "#ffc107",     # Жёлтый (графики)
     "chart_purple": "#9c27b0",     # Фиолетовый (графики)
     "chart_orange": "#ff6900",     # Оранжевый (графики)
+    "chart_bg": "#ffffff",         # Фон графика (белый)
+    "chart_axes": "#f5f2eb",       # Фон осей графика
+    "chart_text": "#1a1a1a",       # Текст на графике
+    "chart_grid": "#e0ddd5",       # Сетка графика
     "muted": "#999999",            # Приглушённый цвет
     "group_bg": "#faf8f3",         # Фон групп
 }

@@ -80,6 +80,12 @@ class AssigneeLoadChart(ChartWindow):
         colors = theme_data(get_active_theme_mode())
         _apply_axis_theme(ax, colors)
 
+        if not data:
+            ax.text(0.5, 0.5, "Нет данных о задачах", ha="center", va="center", fontsize=14,
+                    color=colors["chart_text"])
+            self.canvas.draw()
+            return
+
         names = [d[0] for d in data]
         counts = [d[1] for d in data]
 
@@ -169,10 +175,16 @@ class StatusDistributionChart(ChartWindow):
         colors = theme_data(get_active_theme_mode())
         _apply_axis_theme(ax, colors)
 
+        if not data:
+            ax.text(0.5, 0.5, "Нет данных о статусах задач", ha="center", va="center", fontsize=14,
+                    color=colors["chart_text"])
+            self.canvas.draw()
+            return
+
         labels = [d[0] for d in data]
         sizes = [d[1] for d in data]
 
-        status_colors = {"To Do": colors["chart_muted"], "In Progress": colors["chart_blue"], "Done": colors["chart_green"]}
+        status_colors = {"To Do": colors["muted"], "In Progress": colors["chart_blue"], "Done": colors["chart_green"]}
         pie_colors = [status_colors.get(l, colors["chart_purple"]) for l in labels]
 
         explode = [0.05 if l == "Done" else 0 for l in labels]
