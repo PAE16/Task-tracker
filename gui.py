@@ -638,19 +638,22 @@ class TaskTrackerApp(QMainWindow):
             "Статус", "Создано", "Дедлайн", "Завершено", "Действия"
         ])
         header = self.task_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(8, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(9, QHeaderView.ResizeToContents)
+        # Включить интерактивное изменение размеров колонок
+        header.setSectionResizeMode(0, QHeaderView.Interactive)  # ID
+        header.setSectionResizeMode(1, QHeaderView.Interactive)  # Проект
+        header.setSectionResizeMode(2, QHeaderView.Stretch)      # Описание
+        header.setSectionResizeMode(3, QHeaderView.Stretch)      # Исполнитель
+        header.setSectionResizeMode(4, QHeaderView.Interactive)  # Приоритет
+        header.setSectionResizeMode(5, QHeaderView.Interactive)  # Статус
+        header.setSectionResizeMode(6, QHeaderView.Interactive)  # Создано
+        header.setSectionResizeMode(7, QHeaderView.Interactive)  # Дедлайн
+        header.setSectionResizeMode(8, QHeaderView.Interactive)  # Завершено
+        header.setSectionResizeMode(9, QHeaderView.Interactive)  # Действия
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(True)
+        # Подключить сортировку при клике на заголовок
+        header.sectionClicked.connect(self.sort_table_by_column)
         self.task_table.verticalHeader().setVisible(False)
         self.task_table.verticalHeader().setDefaultSectionSize(34)
         self.task_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -689,6 +692,10 @@ class TaskTrackerApp(QMainWindow):
         """)
         self.task_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.task_table.doubleClicked.connect(self.on_cell_double_clicked)
+        
+        # Инициализировать переменные для сортировки
+        self.sort_column = None
+        self.sort_ascending = True
 
         layout.addWidget(self.task_table)
 
@@ -865,6 +872,63 @@ class TaskTrackerApp(QMainWindow):
             btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(complete_btn)
             self.task_table.setCellWidget(row_idx, 9, btn_container)
+
+    def sort_table_by_column(self, column):
+        """Сортировать таблицу по выбранной колонке.
+        
+        При клике на ту же колонку - меняется направление сортировки (возрастание/убывание).
+        """
+        # Определить направление сортировки
+        if self.sort_column == column:
+            # Если кликаем на ту же колонку - переключаем направление
+            self.sort_ascending = not self.sort_ascending
+        else:
+            # Новая колонка - сортируем по возрастанию
+            self.sort_ascending = True
+            self.sort_column = column
+        
+        # Словарь соответствия индексов колонок ключам в словаре задачи
+        column_keys = {
+            0: "id",
+            1: "project_name",
+            2: "description",
+            3: "assignee",
+            4: "priority",
+            5: "status",
+            6: "created_at",
+            7: "deadline",
+            8: "completed_at",
+            9: None,  # Колонка действий не сортируется
+        }
+        
+        if column >= len(column_keys) or column_keys[column] is None:
+            return
+        
+        sort_key = column_keys[column]
+        
+        # Специальная сортировка для приоритетов
+        if sort_key == "priority":
+            priority_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+            self.tasks.sort(
+                key=lambda t: priority_order.get(t.get(sort_key, ""), 999),
+                reverse=not self.sort_ascending
+            )
+        # Специальная сортировка для статусов
+        elif sort_key == "status":
+            status_order = {"Done": 0, "In Progress": 1, "To Do": 2}
+            self.tasks.sort(
+                key=lambda t: status_order.get(t.get(sort_key, ""), 999),
+                reverse=not self.sort_ascending
+            )
+        # Обычная сортировка для остальных
+        else:
+            self.tasks.sort(
+                key=lambda t: str(t.get(sort_key, "")).lower(),
+                reverse=not self.sort_ascending
+            )
+        
+        # Перерисовать таблицу
+        self.populate_table()
 
     def on_cell_double_clicked(self, index):
         """Обработка двойного клика для открытия полного редактора задачи."""
