@@ -537,6 +537,21 @@ class TaskTrackerApp(QMainWindow):
         self.analytics_btn.clicked.connect(lambda: self.show_controls_section(2))
         header_layout.addWidget(self.analytics_btn)
 
+        header_layout.addSpacing(12)
+
+        # Кнопки действий над таблицей
+        self.edit_btn = QPushButton("Edit")
+        self.edit_btn.setProperty("variant", "secondary")
+        self.edit_btn.setMinimumWidth(80)
+        self.edit_btn.clicked.connect(self.edit_selected_task)
+        header_layout.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setProperty("variant", "secondary")
+        self.delete_btn.setMinimumWidth(80)
+        self.delete_btn.clicked.connect(self.delete_selected_task)
+        header_layout.addWidget(self.delete_btn)
+
         self.main_layout.addWidget(header)
 
     def _current_colors(self):
@@ -632,10 +647,10 @@ class TaskTrackerApp(QMainWindow):
         layout = QVBoxLayout()
 
         self.task_table = QTableWidget()
-        self.task_table.setColumnCount(10)
+        self.task_table.setColumnCount(9)
         self.task_table.setHorizontalHeaderLabels([
             "ID", "Проект", "Описание", "Исполнитель", "Приоритет",
-            "Статус", "Создано", "Дедлайн", "Завершено", "Действия"
+            "Статус", "Создано", "Дедлайн", "Завершено"
         ])
         header = self.task_table.horizontalHeader()
         # Включить интерактивное изменение размеров колонок
@@ -648,7 +663,6 @@ class TaskTrackerApp(QMainWindow):
         header.setSectionResizeMode(6, QHeaderView.Interactive)  # Создано
         header.setSectionResizeMode(7, QHeaderView.Interactive)  # Дедлайн
         header.setSectionResizeMode(8, QHeaderView.Interactive)  # Завершено
-        header.setSectionResizeMode(9, QHeaderView.Interactive)  # Действия
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         header.setStretchLastSection(False)
         header.setCascadingSectionResizes(True)
@@ -698,23 +712,6 @@ class TaskTrackerApp(QMainWindow):
         self.sort_ascending = True
 
         layout.addWidget(self.task_table)
-
-        btn_layout = QHBoxLayout()
-
-        delete_btn = QPushButton("Удалить выбранную")
-        delete_btn.setProperty("variant", "secondary")
-        delete_btn.setStyleSheet(self._button_style("danger"))
-        delete_btn.clicked.connect(self.delete_selected_task)
-        btn_layout.addWidget(delete_btn)
-
-        refresh_btn = QPushButton("Обновить")
-        refresh_btn.setProperty("variant", "primary")
-        refresh_btn.setStyleSheet(self._button_style("primary"))
-        refresh_btn.clicked.connect(self.refresh_data)
-        btn_layout.addWidget(refresh_btn)
-
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
 
         self.task_group.setLayout(layout)
         self.main_layout.addWidget(self.task_group, stretch=1)
@@ -833,46 +830,6 @@ class TaskTrackerApp(QMainWindow):
             item.setTextAlignment(Qt.AlignCenter)
             self.task_table.setItem(row_idx, 8, item)
 
-            edit_btn = QPushButton("Редактировать")
-            edit_btn.setProperty("variant", "secondary")
-            edit_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {colors['accent']};
-                    color: #ffffff;
-                    padding: 4px 10px;
-                    border-radius: 999px;
-                    font-size: 10px;
-                    border: none;
-                }}
-                QPushButton:hover {{ background-color: {colors['accent_hover']}; }}
-            """)
-            edit_btn.clicked.connect(lambda checked, rid=row_idx: self._open_edit_dialog(rid))
-            
-            complete_btn = QPushButton("✓")
-            complete_btn.setProperty("variant", "secondary")
-            complete_btn.setFixedWidth(32)
-            complete_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {colors['chart_green']};
-                    color: #ffffff;
-                    padding: 4px 6px;
-                    border-radius: 999px;
-                    font-size: 10px;
-                    border: none;
-                    font-weight: bold;
-                }}
-                QPushButton:hover {{ background-color: #059669; }}
-            """)
-            complete_btn.clicked.connect(lambda checked, tid=task["id"]: self._mark_task_complete(tid))
-            
-            btn_container = QWidget()
-            btn_layout = QHBoxLayout(btn_container)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(2)
-            btn_layout.addWidget(edit_btn)
-            btn_layout.addWidget(complete_btn)
-            self.task_table.setCellWidget(row_idx, 9, btn_container)
-
     def sort_table_by_column(self, column):
         """Сортировать таблицу по выбранной колонке.
         
@@ -898,7 +855,6 @@ class TaskTrackerApp(QMainWindow):
             6: "created_at",
             7: "deadline",
             8: "completed_at",
-            9: None,  # Колонка действий не сортируется
         }
         
         if column >= len(column_keys) or column_keys[column] is None:
@@ -933,11 +889,6 @@ class TaskTrackerApp(QMainWindow):
     def on_cell_double_clicked(self, index):
         """Обработка двойного клика для открытия полного редактора задачи."""
         row = index.row()
-        col = index.column()
-        
-        # Пропустить колонку действий (кнопки)
-        if col == 9:
-            return
         
         if row < 0 or row >= len(self.tasks):
             return
@@ -1098,6 +1049,17 @@ class TaskTrackerApp(QMainWindow):
         row = selected[0].row()
         task_id = self.tasks[row]["id"]
         self.delete_task_by_id(task_id)
+
+    def edit_selected_task(self):
+        """Редактировать выбранную задачу."""
+        selected = self.task_table.selectedItems()
+        if not selected:
+            QMessageBox.warning(self, "Внимание", "Выберите задачу для редактирования!")
+            return
+
+        row = selected[0].row()
+        task_id = self.tasks[row]["id"]
+        self._open_full_edit_dialog(task_id)
 
     def delete_task_by_id(self, task_id):
         """Удалить задачу по ID."""
