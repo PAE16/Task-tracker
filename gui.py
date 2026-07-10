@@ -495,6 +495,10 @@ class TaskTrackerApp(QMainWindow):
 
         self.statusBar().showMessage("Готово")
         self.refresh_data()
+        
+        # Отложить установку размеров колонок до отрисовки окна
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(100, self._adjust_column_widths)
 
     def _build_header(self):
         """Заголовок приложения (компактный и адаптивный)."""
@@ -653,19 +657,13 @@ class TaskTrackerApp(QMainWindow):
             "Статус", "Создано", "Дедлайн", "Завершено"
         ])
         header = self.task_table.horizontalHeader()
-        # Включить интерактивное изменение размеров колонок
-        header.setSectionResizeMode(0, QHeaderView.Interactive)  # ID
-        header.setSectionResizeMode(1, QHeaderView.Interactive)  # Проект
-        header.setSectionResizeMode(2, QHeaderView.Stretch)      # Описание
-        header.setSectionResizeMode(3, QHeaderView.Stretch)      # Исполнитель
-        header.setSectionResizeMode(4, QHeaderView.Interactive)  # Приоритет
-        header.setSectionResizeMode(5, QHeaderView.Interactive)  # Статус
-        header.setSectionResizeMode(6, QHeaderView.Interactive)  # Создано
-        header.setSectionResizeMode(7, QHeaderView.Interactive)  # Дедлайн
-        header.setSectionResizeMode(8, QHeaderView.Interactive)  # Завершено
+        # Все колонки - интерактивное изменение размеров
+        for col in range(9):
+            header.setSectionResizeMode(col, QHeaderView.Interactive)
+        
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         header.setStretchLastSection(False)
-        header.setCascadingSectionResizes(True)
+        header.setCascadingSectionResizes(False)
         # Подключить сортировку при клике на заголовок
         header.sectionClicked.connect(self.sort_table_by_column)
         self.task_table.verticalHeader().setVisible(False)
@@ -742,6 +740,20 @@ class TaskTrackerApp(QMainWindow):
             self.filter_dialog._reset_filters()
         else:
             self.apply_filters({})
+
+    def _adjust_column_widths(self):
+        """Установить размеры колонок пропорционально ширине таблицы."""
+        total_width = self.task_table.width()
+        if total_width < 100:
+            return  # Окно ещё не инициализировано
+        
+        # Пропорции ширины: ID, Проект, Описание, Исполнитель, Приоритет, Статус, Создано, Дедлайн, Завершено
+        proportions = [0.04, 0.08, 0.28, 0.18, 0.08, 0.10, 0.08, 0.08, 0.08]
+        header = self.task_table.horizontalHeader()
+        
+        for col, proportion in enumerate(proportions):
+            new_width = int(total_width * proportion)
+            header.resizeSection(col, max(new_width, 40))  # Минимум 40px
 
     def populate_table(self):
         """Заполнить таблицу задачами."""
