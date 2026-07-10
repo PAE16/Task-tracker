@@ -867,7 +867,7 @@ class TaskTrackerApp(QMainWindow):
             self.task_table.setCellWidget(row_idx, 9, btn_container)
 
     def on_cell_double_clicked(self, index):
-        """Обработка двойного клика для редактирования ячейки."""
+        """Обработка двойного клика для открытия полного редактора задачи."""
         row = index.row()
         col = index.column()
         
@@ -875,71 +875,93 @@ class TaskTrackerApp(QMainWindow):
         if col == 9:
             return
         
+        if row < 0 or row >= len(self.tasks):
+            return
+        
         task_id = self.tasks[row]["id"]
+        self._open_full_edit_dialog(task_id)
 
-        editable_cols = {2: "description", 3: "assignee", 4: "priority", 5: "status", 7: "deadline"}
-
-        if col not in editable_cols:
-            return
-
-        field = editable_cols[col]
+    def _open_full_edit_dialog(self, task_id):
+        """Открыть полный диалог редактирования задачи."""
+        # Найти задачу по ID
+        task = None
+        for t in self.tasks:
+            if t["id"] == task_id:
+                task = t
+                break
         
-        # Получить текущее значение из ячейки
-        item = self.task_table.item(row, col)
-        if item is None:
+        if not task:
+            QMessageBox.warning(self, "Ошибка", "Задача не найдена!")
             return
         
-        current_text = item.text()
-
-        if field in ("priority", "status"):
-            dialog = QDialog(self)
-            dialog.setWindowTitle(f"Изменить {field}")
-            layout = QVBoxLayout()
-            combo = QComboBox()
-            if field == "priority":
-                combo.addItems(["Low", "Medium", "High", "Critical"])
-            else:
-                combo.addItems(["To Do", "In Progress", "Done"])
-            combo.setCurrentText(current_text)
-            layout.addWidget(combo)
-            btn = QPushButton("Сохранить")
-            btn.clicked.connect(dialog.accept)
-            layout.addWidget(btn)
-            dialog.setLayout(layout)
-            if dialog.exec_():
-                update_task(task_id, field, combo.currentText())
-                self.apply_filters()
-        elif field == "deadline":
-            dialog = QDialog(self)
-            dialog.setWindowTitle("Изменить дедлайн")
-            layout = QVBoxLayout()
-            date_edit = QDateEdit()
-            date_edit.setCalendarPopup(True)
-            if current_text:
-                date_edit.setDate(QDate.fromString(current_text, "yyyy-MM-dd"))
-            else:
-                date_edit.setDate(QDate.currentDate())
-            layout.addWidget(date_edit)
-            btn = QPushButton("Сохранить")
-            btn.clicked.connect(dialog.accept)
-            layout.addWidget(btn)
-            dialog.setLayout(layout)
-            if dialog.exec_():
-                update_task(task_id, field, date_edit.date().toString("yyyy-MM-dd"))
-                self.apply_filters()
+        # Создать поля для редактирования
+        # Проект
+        project_combo = QComboBox()
+        for project in self.projects:
+            project_combo.addItem(project["name"], project["id"])
+            if project["id"] == task.get("project_id"):
+                project_combo.setCurrentIndex(project_combo.count() - 1)
+        
+        # Описание
+        description_edit = QLineEdit()
+        description_edit.setText(task.get("description", ""))
+        
+        # Исполнитель
+        assignee_edit = QLineEdit()
+        assignee_edit.setText(task.get("assignee", ""))
+        
+        # Приоритет
+        priority_combo = QComboBox()
+        priority_combo.addItems(["Low", "Medium", "High", "Critical"])
+        priority_combo.setCurrentText(task.get("priority", "Low"))
+        
+        # Статус
+        status_combo = QComboBox()
+        status_combo.addItems(["To Do", "In Progress", "Done"])
+        status_combo.setCurrentText(task.get("status", "To Do"))
+        
+        # Дедлайн
+        deadline_edit = QDateEdit()
+        deadline_edit.setCalendarPopup(True)
+        if task.get("deadline"):
+            deadline_edit.setDate(QDate.fromString(task["deadline"], "yyyy-MM-dd"))
         else:
-            dialog = QDialog(self)
-            dialog.setWindowTitle(f"Изменить {field}")
-            layout = QVBoxLayout()
-            line_edit = QLineEdit(current_text)
-            layout.addWidget(line_edit)
-            btn = QPushButton("Сохранить")
-            btn.clicked.connect(dialog.accept)
-            layout.addWidget(btn)
-            dialog.setLayout(layout)
-            if dialog.exec_():
-                update_task(task_id, field, line_edit.text())
-                self.apply_filters()
+            deadline_edit.setDate(QDate.currentDate().addDays(7))
+        
+        # Создать диалог
+        fields_data = [
+            ("Проект", project_combo),
+            ("Описание", description_edit),
+            ("Исполнитель", assignee_edit),
+            ("Приоритет", priority_combo),
+            ("Статус", status_combo),
+            ("Дедлайн", deadline_edit),
+        ]
+        
+        dialog = CompactEditDialog(f"Редактирование задачи #{task_id}", fields_data, self)
+        
+        if dialog.exec_() == QDialog.Accepted:
+            # Сохранить изменения
+            updates = {
+                "project_id": project_combo.currentData(),
+                "description": description_edit.text(),
+                "assignee": assignee_edit.text(),
+                "priority": priority_combo.currentText(),
+                "status": status_combo.currentText(),
+                "deadline": deadline_edit.date().toString("yyyy-MM-dd"),
+            }
+            
+            # Проверить что обязательные поля заполнены
+            if not updates["description"].strip() or not updates["assignee"].strip():
+                QMessageBox.warning(self, "Ошибка", "Описание и исполнитель обязательны!")
+                return
+            
+            # Применить обновления
+            for field, value in updates.items():
+                update_task(task_id, field, value)
+            
+            QMessageBox.information(self, "Успех", "Задача обновлена!")
+            self.apply_filters()
 
     def add_new_task(self):
         """Открывает попап создания задачи."""
