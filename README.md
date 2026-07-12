@@ -134,9 +134,6 @@ chmod +x dist/TaskTracker
 ./dist/TaskTracker
 ```
 
-## Репозиторий
-
-- GitHub: https://github.com/PAE16/Task-tracker
 
 ## Автор
 
