@@ -209,7 +209,7 @@ class CompactEditDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
 
-        ok_btn = QPushButton("OK")
+        ok_btn = QPushButton("Сохранить")
         ok_btn.setMinimumWidth(100)
         ok_btn.clicked.connect(self.accept)
 
@@ -472,7 +472,7 @@ class TaskTrackerApp(QMainWindow):
         self.resolved_theme = resolve_theme(self.theme_mode)
 
         self.setWindowTitle("Task Tracker")
-        self.setMinimumSize(1200, 800)  # Минимальный размер адаптивен
+        self.setMinimumSize(1024, 680)
         self.resize(1600, 1000)
 
         self.central_widget = QWidget()
@@ -492,6 +492,8 @@ class TaskTrackerApp(QMainWindow):
         self.filter_dialog = FilterDialog(self)
         self.analytics_popup = AnalyticsPopupDialog(self)
         self._build_task_table()
+        self.main_layout.setStretch(0, 0)
+        self.main_layout.setStretch(1, 1)
 
         self.statusBar().showMessage("Готово")
         self.refresh_data()
@@ -502,15 +504,24 @@ class TaskTrackerApp(QMainWindow):
 
     def _build_header(self):
         """Заголовок приложения (компактный и адаптивный)."""
+        colors = self._current_colors()
+
         header = QFrame()
         header.setObjectName("headerCard")
         header.setMinimumHeight(64)
-        header.setMaximumHeight(80)
-        shadow = QGraphicsDropShadowEffect(header)
-        shadow.setBlurRadius(6)
-        shadow.setOffset(0, 1)
-        shadow.setColor(QColor(0, 0, 0, 15))
-        header.setGraphicsEffect(shadow)
+        header.setStyleSheet(f"""
+            QFrame#headerCard {{
+                background-color: {colors['surface_alt']};
+                border: 1px solid {colors['border']};
+                border-bottom: 1px solid {colors['border']};
+                border-radius: 14px;
+            }}
+            QLabel#heroTitle {{
+                color: {colors['text']};
+                font-weight: 700;
+            }}
+        """)
+        header.setGraphicsEffect(None)
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(12, 10, 12, 10)
         header_layout.setSpacing(12)
@@ -523,19 +534,19 @@ class TaskTrackerApp(QMainWindow):
         header_layout.addStretch()
 
         # Кнопки действий (без переключения темы)
-        self.create_btn = QPushButton("Create")
+        self.create_btn = QPushButton("Создать")
         self.create_btn.setProperty("variant", "primary")
         self.create_btn.setMinimumWidth(80)
         self.create_btn.clicked.connect(lambda: self.show_controls_section(0))
         header_layout.addWidget(self.create_btn)
 
-        self.filter_btn = QPushButton("Filter")
+        self.filter_btn = QPushButton("Фильтр")
         self.filter_btn.setProperty("variant", "secondary")
         self.filter_btn.setMinimumWidth(80)
         self.filter_btn.clicked.connect(lambda: self.show_controls_section(1))
         header_layout.addWidget(self.filter_btn)
 
-        self.analytics_btn = QPushButton("Insights")
+        self.analytics_btn = QPushButton("Аналитика")
         self.analytics_btn.setProperty("variant", "secondary")
         self.analytics_btn.setMinimumWidth(80)
         self.analytics_btn.clicked.connect(lambda: self.show_controls_section(2))
@@ -544,19 +555,32 @@ class TaskTrackerApp(QMainWindow):
         header_layout.addSpacing(12)
 
         # Кнопки действий над таблицей
-        self.edit_btn = QPushButton("Edit")
+        self.edit_btn = QPushButton("Изменить")
         self.edit_btn.setProperty("variant", "secondary")
         self.edit_btn.setMinimumWidth(80)
         self.edit_btn.clicked.connect(self.edit_selected_task)
         header_layout.addWidget(self.edit_btn)
 
-        self.delete_btn = QPushButton("Delete")
+        self.delete_btn = QPushButton("Удалить")
         self.delete_btn.setProperty("variant", "secondary")
         self.delete_btn.setMinimumWidth(80)
         self.delete_btn.clicked.connect(self.delete_selected_task)
         header_layout.addWidget(self.delete_btn)
 
+        self.complete_btn = QPushButton("Выполнить")
+        self.complete_btn.setProperty("variant", "success")
+        self.complete_btn.setMinimumWidth(90)
+        self.complete_btn.setEnabled(False)
+        self.complete_btn.clicked.connect(self.complete_selected_task)
+        header_layout.addWidget(self.complete_btn)
+
         self.main_layout.addWidget(header)
+
+        header_divider = QFrame()
+        header_divider.setFrameShape(QFrame.HLine)
+        header_divider.setFixedHeight(1)
+        header_divider.setStyleSheet(f"background-color: {colors['surface_alt']}; border: none;")
+        self.main_layout.addWidget(header_divider)
 
     def _current_colors(self):
         """Возвращает цвета для текущей темы."""
@@ -660,6 +684,7 @@ class TaskTrackerApp(QMainWindow):
         # Все колонки - интерактивное изменение размеров
         for col in range(9):
             header.setSectionResizeMode(col, QHeaderView.Interactive)
+        header.setMinimumSectionSize(56)
         
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         header.setStretchLastSection(False)
@@ -671,7 +696,7 @@ class TaskTrackerApp(QMainWindow):
         self.task_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.task_table.setSelectionMode(QTableWidget.SingleSelection)
         self.task_table.setAlternatingRowColors(True)
-        self.task_table.setShowGrid(False)
+        self.task_table.setShowGrid(True)
         self.task_table.setWordWrap(False)
         self.task_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.task_table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
@@ -687,7 +712,8 @@ class TaskTrackerApp(QMainWindow):
             }}
             QTableWidget::item {{
                 padding: 6px 10px;
-                border: none;
+                border-right: 1px solid {colors['border']};
+                border-bottom: 1px solid {colors['border']};
             }}
             QTableWidget::item:selected {{
                 background-color: {colors['selection']};
@@ -698,12 +724,16 @@ class TaskTrackerApp(QMainWindow):
                 color: {colors['text']};
                 padding: 5px 8px;
                 font-weight: 700;
-                border: none;
+                border-right: 1px solid {colors['border']};
                 border-bottom: 1px solid {colors['border']};
+            }}
+            QHeaderView::section:hover {{
+                background-color: {colors['accent_soft']};
             }}
         """)
         self.task_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.task_table.doubleClicked.connect(self.on_cell_double_clicked)
+        self.task_table.itemSelectionChanged.connect(self._update_action_buttons_state)
         
         # Инициализировать переменные для сортировки
         self.sort_column = None
@@ -743,17 +773,23 @@ class TaskTrackerApp(QMainWindow):
 
     def _adjust_column_widths(self):
         """Установить размеры колонок пропорционально ширине таблицы."""
-        total_width = self.task_table.width()
+        total_width = self.task_table.viewport().width()
         if total_width < 100:
             return  # Окно ещё не инициализировано
         
         # Пропорции ширины: ID, Проект, Описание, Исполнитель, Приоритет, Статус, Создано, Дедлайн, Завершено
         proportions = [0.04, 0.08, 0.28, 0.18, 0.08, 0.10, 0.08, 0.08, 0.08]
+        min_widths = [56, 90, 240, 160, 100, 120, 100, 100, 100]
         header = self.task_table.horizontalHeader()
         
         for col, proportion in enumerate(proportions):
             new_width = int(total_width * proportion)
-            header.resizeSection(col, max(new_width, 40))  # Минимум 40px
+            header.resizeSection(col, max(new_width, min_widths[col]))
+
+    def resizeEvent(self, event):
+        """Пересчитать размеры колонок при изменении размеров окна."""
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._adjust_column_widths)
 
     def populate_table(self):
         """Заполнить таблицу задачами."""
@@ -842,6 +878,28 @@ class TaskTrackerApp(QMainWindow):
             item.setTextAlignment(Qt.AlignCenter)
             self.task_table.setItem(row_idx, 8, item)
 
+        self._adjust_column_widths()
+        self._update_action_buttons_state()
+
+    def _update_action_buttons_state(self):
+        """Актуализировать доступность действий по выбранной задаче."""
+        if not hasattr(self, "task_table"):
+            return
+
+        selected = self.task_table.selectedItems()
+        has_selection = bool(selected)
+
+        self.edit_btn.setEnabled(has_selection)
+        self.delete_btn.setEnabled(has_selection)
+
+        can_complete = False
+        if has_selection:
+            row = selected[0].row()
+            if 0 <= row < len(self.tasks):
+                can_complete = self.tasks[row].get("status") != "Done"
+
+        self.complete_btn.setEnabled(can_complete)
+
     def sort_table_by_column(self, column):
         """Сортировать таблицу по выбранной колонке.
         
@@ -873,27 +931,57 @@ class TaskTrackerApp(QMainWindow):
             return
         
         sort_key = column_keys[column]
-        
-        # Специальная сортировка для приоритетов
-        if sort_key == "priority":
-            priority_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
-            self.tasks.sort(
-                key=lambda t: priority_order.get(t.get(sort_key, ""), 999),
-                reverse=not self.sort_ascending
-            )
-        # Специальная сортировка для статусов
-        elif sort_key == "status":
-            status_order = {"Done": 0, "In Progress": 1, "To Do": 2}
-            self.tasks.sort(
-                key=lambda t: status_order.get(t.get(sort_key, ""), 999),
-                reverse=not self.sort_ascending
-            )
-        # Обычная сортировка для остальных
-        else:
-            self.tasks.sort(
-                key=lambda t: str(t.get(sort_key, "")).lower(),
-                reverse=not self.sort_ascending
-            )
+
+        def parse_date_value(raw_value):
+            """Преобразовать дату в число для корректной сортировки."""
+            if not raw_value:
+                return None
+            text = str(raw_value).strip()
+            if len(text) >= 10:
+                text = text[:10]
+            date = QDate.fromString(text, "yyyy-MM-dd")
+            if date.isValid():
+                return date.toJulianDay()
+            return None
+
+        def build_sort_value(task):
+            """Вернуть типобезопасное значение сортировки для выбранной колонки."""
+            raw_value = task.get(sort_key)
+
+            if sort_key == "id":
+                try:
+                    return int(raw_value)
+                except (TypeError, ValueError):
+                    return None
+
+            if sort_key == "priority":
+                priority_order = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
+                return priority_order.get(str(raw_value or ""), None)
+
+            if sort_key == "status":
+                status_order = {"To Do": 0, "In Progress": 1, "Done": 2}
+                return status_order.get(str(raw_value or ""), None)
+
+            if sort_key in ("created_at", "deadline", "completed_at"):
+                return parse_date_value(raw_value)
+
+            text_value = str(raw_value or "").strip()
+            if not text_value:
+                return None
+            return text_value.casefold()
+
+        # Пустые значения всегда внизу, независимо от направления сортировки.
+        non_empty_tasks = []
+        empty_tasks = []
+        for task in self.tasks:
+            sort_value = build_sort_value(task)
+            if sort_value is None:
+                empty_tasks.append(task)
+            else:
+                non_empty_tasks.append((sort_value, task))
+
+        non_empty_tasks.sort(key=lambda pair: pair[0], reverse=not self.sort_ascending)
+        self.tasks = [task for _, task in non_empty_tasks] + empty_tasks
         
         # Перерисовать таблицу
         self.populate_table()
@@ -1061,6 +1149,27 @@ class TaskTrackerApp(QMainWindow):
         row = selected[0].row()
         task_id = self.tasks[row]["id"]
         self.delete_task_by_id(task_id)
+
+    def complete_selected_task(self):
+        """Быстро отметить выбранную задачу как выполненную."""
+        selected = self.task_table.selectedItems()
+        if not selected:
+            QMessageBox.warning(self, "Внимание", "Выберите задачу для завершения!")
+            return
+
+        row = selected[0].row()
+        if row < 0 or row >= len(self.tasks):
+            return
+
+        task_id = self.tasks[row]["id"]
+        current_status = self.tasks[row].get("status")
+
+        if current_status == "Done":
+            QMessageBox.information(self, "Информация", "Задача уже завершена.")
+            return
+
+        self._mark_task_complete(task_id)
+        QMessageBox.information(self, "Успех", f"Задача #{task_id} отмечена как выполненная!")
 
     def edit_selected_task(self):
         """Редактировать выбранную задачу."""

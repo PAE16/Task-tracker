@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QCom
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from datetime import datetime, timedelta
 import numpy as np
 
 from theme import theme_data, get_active_theme_mode
@@ -26,6 +27,83 @@ def _apply_axis_theme(ax, colors):
         spine.set_color(colors["border"])
     ax.grid(True, color=colors["chart_grid"], alpha=0.6, linestyle="--", linewidth=0.8)
     ax.set_axisbelow(True)
+
+
+def _finalize_axis_text(ax, colors, rotate_x=False):
+    """Приводит подписи/заголовки к единому читабельному стилю."""
+    ax.title.set_fontsize(16)
+    ax.title.set_fontweight("semibold")
+    ax.xaxis.label.set_fontsize(12)
+    ax.yaxis.label.set_fontsize(12)
+    ax.tick_params(axis="both", labelsize=10, colors=colors["chart_text"])
+
+    if rotate_x:
+        for label in ax.get_xticklabels():
+            label.set_rotation(40)
+            label.set_horizontalalignment("right")
+            label.set_rotation_mode("anchor")
+    else:
+        for label in ax.get_xticklabels():
+            label.set_rotation(0)
+            label.set_horizontalalignment("center")
+
+
+def _style_legend(legend, colors):
+    """Единая настройка легенды под тему и читаемость."""
+    if legend is None:
+        return
+    legend.get_frame().set_facecolor(colors["chart_bg"])
+    legend.get_frame().set_edgecolor(colors["border"])
+    for text in legend.get_texts():
+        text.set_color(colors["chart_text"])
+        text.set_fontsize(10)
+    title = legend.get_title()
+    if title:
+        title.set_color(colors["chart_text"])
+        title.set_fontsize(10)
+
+
+def _build_sparse_tick_labels(labels, max_visible=10, keep_tail=2):
+    """Прореживает подписи оси X, чтобы метки не наслаивались."""
+    total = len(labels)
+    if total <= max_visible:
+        return list(labels)
+
+    keep_tail = min(max(keep_tail, 0), total)
+    head_count = max(total - keep_tail, 0)
+    slots_for_head = max(max_visible - keep_tail, 1)
+    step = max(int(np.ceil(head_count / slots_for_head)), 1)
+
+    sparse = []
+    for idx, label in enumerate(labels):
+        in_tail = idx >= total - keep_tail
+        if in_tail or idx % step == 0:
+            sparse.append(label)
+        else:
+            sparse.append("")
+    return sparse
+
+
+def _format_week_range_label(week_key):
+    """Преобразует метку вида YYYY-Www в читаемый диапазон дат недели."""
+    text = str(week_key or "").strip()
+    if "-W" not in text:
+        return text
+
+    try:
+        year_part, week_part = text.split("-W", 1)
+        year = int(year_part)
+        week = int(week_part)
+
+        # %W: неделя начинается с понедельника, 00..53 (совместимо с SQLite strftime('%W')).
+        monday = datetime.strptime(f"{year} {week} 1", "%Y %W %w").date()
+        sunday = monday + timedelta(days=6)
+
+        if monday.year == sunday.year:
+            return f"{monday:%d.%m}-{sunday:%d.%m}"
+        return f"{monday:%d.%m.%y}-{sunday:%d.%m.%y}"
+    except (TypeError, ValueError):
+        return text
 
 
 class ChartWindow(QDialog):
@@ -98,6 +176,7 @@ class AssigneeLoadChart(ChartWindow):
             ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
                     str(count), va="center", fontsize=9, color=colors["chart_text"])
 
+        _finalize_axis_text(ax, colors)
         self.figure.tight_layout()
         self.canvas.draw()
 
@@ -129,6 +208,7 @@ class OverdueByProjectChart(ChartWindow):
             ax.text(bar.get_width() + 0.1, bar.get_y() + bar.get_height()/2,
                     str(count), va="center", fontsize=9, color=colors["chart_text"])
 
+        _finalize_axis_text(ax, colors)
         self.figure.tight_layout()
         self.canvas.draw()
 
@@ -162,6 +242,7 @@ class AvgTimeByPriorityChart(ChartWindow):
             ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
                     f"{days} дн.", ha="center", fontsize=10, color=colors["chart_text"])
 
+        _finalize_axis_text(ax, colors)
         self.figure.tight_layout()
         self.canvas.draw()
 
@@ -173,7 +254,6 @@ class StatusDistributionChart(ChartWindow):
         super().__init__("Распределение задач по статусам", parent)
         ax = self.figure.add_subplot(111)
         colors = theme_data(get_active_theme_mode())
-        _apply_axis_theme(ax, colors)
 
         if not data:
             ax.text(0.5, 0.5, "Нет данных о статусах задач", ha="center", va="center", fontsize=14,
@@ -181,22 +261,63 @@ class StatusDistributionChart(ChartWindow):
             self.canvas.draw()
             return
 
-        labels = [d[0] for d in data]
-        sizes = [d[1] for d in data]
+        labels = [str(d[0]) for d in data if d[1] and d[1] > 0]
+        sizes = [int(d[1]) for d in data if d[1] and d[1] > 0]
 
-        status_colors = {"To Do": colors["muted"], "In Progress": colors["chart_blue"], "Done": colors["chart_green"]}
-        pie_colors = [status_colors.get(l, colors["chart_purple"]) for l in labels]
+        if not sizes:
+            ax.text(0.5, 0.5, "Нет данных о статусах задач", ha="center", va="center", fontsize=14,
+                    color=colors["chart_text"])
+            self.canvas.draw()
+            return
 
-        explode = [0.05 if l == "Done" else 0 for l in labels]
+        status_colors = {
+            "To Do": colors["muted"],
+            "In Progress": colors["chart_blue"],
+            "Done": colors["chart_green"],
+        }
+        pie_colors = [status_colors.get(label, colors["chart_purple"]) for label in labels]
+        total = sum(sizes)
 
-        ax.pie(
-            sizes, labels=labels, autopct="%1.1f%%", startangle=90,
-            colors=pie_colors, explode=explode, shadow=True,
-            textprops={"color": colors["chart_text"]}
+        def autopct_with_count(pct):
+            count = int(round(total * pct / 100.0))
+            return f"{pct:.1f}%\n({count})"
+
+        wedges, _, autotexts = ax.pie(
+            sizes,
+            labels=None,
+            autopct=autopct_with_count,
+            startangle=90,
+            counterclock=False,
+            colors=pie_colors,
+            wedgeprops={"width": 0.58, "edgecolor": colors["chart_bg"], "linewidth": 2},
+            textprops={"color": colors["chart_text"], "fontsize": 10},
+            pctdistance=0.72,
         )
-        ax.set_title("Распределение задач по статусам")
 
-        self.figure.tight_layout()
+        for text in autotexts:
+            text.set_fontsize(10)
+            text.set_weight("semibold")
+
+        legend_labels = [f"{label}: {count}" for label, count in zip(labels, sizes)]
+        legend = ax.legend(
+            wedges,
+            legend_labels,
+            title="Статусы",
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False,
+        )
+        _style_legend(legend, colors)
+
+        ax.set_title("Распределение задач по статусам", pad=16)
+        ax.title.set_fontsize(16)
+        ax.title.set_fontweight("semibold")
+        ax.set_aspect("equal")
+        ax.set_facecolor(colors["chart_bg"])
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        self.figure.subplots_adjust(left=0.06, right=0.80, top=0.88, bottom=0.08)
         self.canvas.draw()
 
 
@@ -243,16 +364,20 @@ class ClosedTasksTimelineChart(ChartWindow):
             return
 
         labels = [d[0] for d in data]
+        if self.period_combo.currentIndex() == 0:
+            labels = [_format_week_range_label(label) for label in labels]
         values = [d[1] for d in data]
 
-        ax.plot(labels, values, marker="o", linewidth=2, markersize=6, color=colors["chart_blue"], label="Фактические данные")
-        ax.fill_between(range(len(labels)), values, alpha=0.25, color=colors["chart_blue"])
+        x_positions = list(range(len(labels)))
+        ax.plot(x_positions, values, marker="o", linewidth=2, markersize=6,
+            color=colors["chart_blue"], label="Фактические данные")
+        ax.fill_between(x_positions, values, alpha=0.25, color=colors["chart_blue"])
 
         # Прогноз
         if len(values) >= 2:
             forecast_x, forecast_y = self._calculate_forecast(values)
             if forecast_x:
-                all_x = list(range(len(labels))) + forecast_x
+                all_x = x_positions + forecast_x
                 ax.plot(all_x[-len(forecast_x):], forecast_y, marker="s", linewidth=2,
                         markersize=6, color=colors["chart_red"], linestyle="--", label="Прогноз")
                 for fx, fy in zip(forecast_x, forecast_y):
@@ -263,13 +388,12 @@ class ClosedTasksTimelineChart(ChartWindow):
         ax.set_xlabel(xlabel)
         ax.set_ylabel("Количество закрытых задач")
         ax.set_title(title)
+        ax.set_xticks(x_positions)
+        sparse_labels = _build_sparse_tick_labels(labels, max_visible=10, keep_tail=0)
+        ax.set_xticklabels(sparse_labels)
         legend = ax.legend(facecolor=colors["chart_bg"], edgecolor=colors["border"])
-        for text in legend.get_texts():
-            text.set_color(colors["chart_text"])
-
-        # Поворот меток оси X
-        if len(labels) > 6:
-            ax.tick_params(axis="x", rotation=45)
+        _style_legend(legend, colors)
+        _finalize_axis_text(ax, colors, rotate_x=(len(labels) > 6))
 
         self.figure.tight_layout()
         self.canvas.draw()
@@ -308,7 +432,7 @@ class ForecastChart(ChartWindow):
             self.canvas.draw()
             return
 
-        labels = [d[0] for d in week_data]
+        labels = [_format_week_range_label(d[0]) for d in week_data]
         values = [d[1] for d in week_data]
         n = len(values)
 
@@ -341,22 +465,26 @@ class ForecastChart(ChartWindow):
         ax.set_ylabel("Количество закрытых задач")
         ax.set_title(f"Прогноз: ~{sum(forecast_y):.0f} задач за следующие 2 недели")
         legend = ax.legend(facecolor=colors["chart_bg"], edgecolor=colors["border"])
-        for text in legend.get_texts():
-            text.set_color(colors["chart_text"])
+        _style_legend(legend, colors)
 
         all_x = list(range(n)) + forecast_x
         all_labels = labels + ["Неделя+1", "Неделя+2"]
         ax.set_xticks(all_x)
-        ax.set_xticklabels(all_labels, rotation=45 if len(labels) > 6 else 0)
+        sparse_labels = _build_sparse_tick_labels(all_labels, max_visible=11, keep_tail=2)
+        ax.set_xticklabels(sparse_labels)
+        _finalize_axis_text(ax, colors, rotate_x=True)
 
         # Добавляем текстовое описание
+        summary_text = "\n".join([
+            f"Скорость закрытия: {slope:.2f} задач/неделя",
+            f"Прогноз на неделю {n+1}: {forecast_y[0]:.1f}",
+            f"Прогноз на неделю {n+2}: {forecast_y[1]:.1f}",
+        ])
         ax.text(0.02, 0.98,
-                f"Скорость закрытия: {slope:.2f} задач/неделя\\n"
-                f"Прогноз на неделю {n+1}: {forecast_y[0]:.1f}\\n"
-                f"Прогноз на неделю {n+2}: {forecast_y[1]:.1f}",
-                transform=ax.transAxes, fontsize=10, verticalalignment="top",
+            summary_text,
+            transform=ax.transAxes, fontsize=10, verticalalignment="top",
                 color=colors["chart_text"],
-                bbox=dict(boxstyle="round", facecolor=colors["chart_bg"], edgecolor=colors["border"], alpha=0.9))
+            bbox=dict(boxstyle="round,pad=0.35", facecolor=colors["chart_bg"], edgecolor=colors["border"], alpha=0.95))
 
         self.figure.tight_layout()
         self.canvas.draw()
