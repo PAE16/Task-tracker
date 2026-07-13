@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy
 )
 from PyQt5.QtCore import Qt, QDate, QTimer, QEasingCurve, QPropertyAnimation, QRect
-from PyQt5.QtGui import QFont, QColor, QBrush, QPalette
+from PyQt5.QtGui import QFont, QColor, QBrush, QPalette, QFontMetrics
 
 from theme import apply_theme, theme_data, resolve_theme
 
@@ -817,32 +817,63 @@ class TaskTrackerApp(QMainWindow):
             "Done": QColor(colors["chart_green"]),
         }
 
-        def make_badge_widget(text, background_color):
+        def make_badge_widget(text, background_color, column_index):
             bg = background_color if isinstance(background_color, QColor) else QColor(background_color)
-            text_color = "#ffffff" if bg.lightness() < 150 else colors["text"]
+            # Подбираем контрастный цвет текста, чтобы бейдж был читаемым на любом фоне.
+            luminance = 0.299 * bg.red() + 0.587 * bg.green() + 0.114 * bg.blue()
+            text_color = "#ffffff" if luminance < 150 else "#111111"
+            border_color = "#ffffff" if luminance < 120 else colors["border"]
+
+            badge_text = str(text)
+            max_badge_width = max(self.task_table.columnWidth(column_index) - 16, 56)
+
+            badge_font = QFont(self.font())
+            badge_font.setBold(True)
+            font_px = 12
+            badge_font.setPixelSize(font_px)
+
+            horizontal_padding = 12
+            vertical_padding = 3
+
+            while font_px > 8:
+                metrics = QFontMetrics(badge_font)
+                badge_width = metrics.horizontalAdvance(badge_text) + horizontal_padding * 2
+                if badge_width <= max_badge_width:
+                    break
+                font_px -= 1
+                badge_font.setPixelSize(font_px)
+
+            metrics = QFontMetrics(badge_font)
+            badge_width = min(
+                metrics.horizontalAdvance(badge_text) + horizontal_padding * 2,
+                max_badge_width,
+            )
+            badge_height = metrics.height() + vertical_padding * 2
 
             wrapper = QWidget()
             wrapper.setStyleSheet("background: transparent;")
             wrapper_layout = QHBoxLayout(wrapper)
-            wrapper_layout.setContentsMargins(6, 3, 6, 3)
+            wrapper_layout.setContentsMargins(4, 2, 4, 2)
             wrapper_layout.setSpacing(0)
 
-            badge = QLabel(text)
+            badge = QLabel(badge_text)
             badge.setAlignment(Qt.AlignCenter)
+            badge.setFont(badge_font)
+            badge.setFixedSize(badge_width, badge_height)
             badge.setStyleSheet(f"""
                 QLabel {{
                     background-color: {bg.name()};
                     color: {text_color};
+                    border: 1px solid {border_color};
                     border-radius: 999px;
-                    padding: 4px 10px;
-                    font-size: 10px;
+                    padding: 0px;
                     font-weight: 700;
                 }}
             """)
             wrapper_layout.addStretch(1)
             wrapper_layout.addWidget(badge, 0, Qt.AlignCenter)
             wrapper_layout.addStretch(1)
-            return wrapper
+            return wrapper, badge_height
 
         for row_idx, task in enumerate(self.tasks):
             item = QTableWidgetItem(str(task["id"]))
@@ -860,15 +891,24 @@ class TaskTrackerApp(QMainWindow):
             item = QTableWidgetItem(task["assignee"])
             self.task_table.setItem(row_idx, 3, item)
 
-            self.task_table.setCellWidget(
-                row_idx,
+            priority_badge_widget, priority_badge_height = make_badge_widget(
+                task["priority"],
+                priority_colors.get(task["priority"], colors["surface_alt"]),
                 4,
-                make_badge_widget(task["priority"], priority_colors.get(task["priority"], colors["surface_alt"])),
             )
-            self.task_table.setCellWidget(
-                row_idx,
+            self.task_table.setCellWidget(row_idx, 4, priority_badge_widget)
+
+            status_badge_widget, status_badge_height = make_badge_widget(
+                task["status"],
+                status_colors.get(task["status"], colors["surface_alt"]),
                 5,
-                make_badge_widget(task["status"], status_colors.get(task["status"], colors["surface_alt"])),
+            )
+            self.task_table.setCellWidget(row_idx, 5, status_badge_widget)
+
+            required_row_height = max(priority_badge_height, status_badge_height) + 8
+            self.task_table.setRowHeight(
+                row_idx,
+                max(self.task_table.rowHeight(row_idx), required_row_height),
             )
 
             item = QTableWidgetItem(task["created_at"])
