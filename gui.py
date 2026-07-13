@@ -567,13 +567,6 @@ class TaskTrackerApp(QMainWindow):
         self.delete_btn.clicked.connect(self.delete_selected_task)
         header_layout.addWidget(self.delete_btn)
 
-        self.todo_btn = QPushButton("К выполнению")
-        self.todo_btn.setProperty("variant", "secondary")
-        self.todo_btn.setMinimumWidth(110)
-        self.todo_btn.setEnabled(False)
-        self.todo_btn.clicked.connect(self.set_selected_task_todo)
-        header_layout.addWidget(self.todo_btn)
-
         self.in_progress_btn = QPushButton("В работе")
         self.in_progress_btn.setProperty("variant", "secondary")
         self.in_progress_btn.setMinimumWidth(95)
@@ -906,18 +899,15 @@ class TaskTrackerApp(QMainWindow):
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
 
-        can_set_todo = False
         can_set_in_progress = False
         can_complete = False
         if has_selection:
             row = selected[0].row()
             if 0 <= row < len(self.tasks):
                 current_status = self.tasks[row].get("status")
-                can_set_todo = current_status != "To Do"
                 can_set_in_progress = current_status != "In Progress"
                 can_complete = current_status != "Done"
 
-        self.todo_btn.setEnabled(can_set_todo)
         self.in_progress_btn.setEnabled(can_set_in_progress)
         self.complete_btn.setEnabled(can_complete)
 
@@ -1174,10 +1164,6 @@ class TaskTrackerApp(QMainWindow):
     def complete_selected_task(self):
         """Быстро отметить выбранную задачу как выполненную."""
         self._set_selected_task_status("Done", "выполненная")
-
-    def set_selected_task_todo(self):
-        """Быстро перевести выбранную задачу в статус To Do."""
-        self._set_selected_task_status("To Do", "к выполнению")
 
     def set_selected_task_in_progress(self):
         """Быстро перевести выбранную задачу в статус In Progress."""
