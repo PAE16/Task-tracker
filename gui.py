@@ -567,6 +567,20 @@ class TaskTrackerApp(QMainWindow):
         self.delete_btn.clicked.connect(self.delete_selected_task)
         header_layout.addWidget(self.delete_btn)
 
+        self.todo_btn = QPushButton("К выполнению")
+        self.todo_btn.setProperty("variant", "secondary")
+        self.todo_btn.setMinimumWidth(110)
+        self.todo_btn.setEnabled(False)
+        self.todo_btn.clicked.connect(self.set_selected_task_todo)
+        header_layout.addWidget(self.todo_btn)
+
+        self.in_progress_btn = QPushButton("В работе")
+        self.in_progress_btn.setProperty("variant", "secondary")
+        self.in_progress_btn.setMinimumWidth(95)
+        self.in_progress_btn.setEnabled(False)
+        self.in_progress_btn.clicked.connect(self.set_selected_task_in_progress)
+        header_layout.addWidget(self.in_progress_btn)
+
         self.complete_btn = QPushButton("Выполнить")
         self.complete_btn.setProperty("variant", "success")
         self.complete_btn.setMinimumWidth(90)
@@ -892,12 +906,19 @@ class TaskTrackerApp(QMainWindow):
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
 
+        can_set_todo = False
+        can_set_in_progress = False
         can_complete = False
         if has_selection:
             row = selected[0].row()
             if 0 <= row < len(self.tasks):
-                can_complete = self.tasks[row].get("status") != "Done"
+                current_status = self.tasks[row].get("status")
+                can_set_todo = current_status != "To Do"
+                can_set_in_progress = current_status != "In Progress"
+                can_complete = current_status != "Done"
 
+        self.todo_btn.setEnabled(can_set_todo)
+        self.in_progress_btn.setEnabled(can_set_in_progress)
         self.complete_btn.setEnabled(can_complete)
 
     def sort_table_by_column(self, column):
@@ -1152,9 +1173,21 @@ class TaskTrackerApp(QMainWindow):
 
     def complete_selected_task(self):
         """Быстро отметить выбранную задачу как выполненную."""
+        self._set_selected_task_status("Done", "выполненная")
+
+    def set_selected_task_todo(self):
+        """Быстро перевести выбранную задачу в статус To Do."""
+        self._set_selected_task_status("To Do", "к выполнению")
+
+    def set_selected_task_in_progress(self):
+        """Быстро перевести выбранную задачу в статус In Progress."""
+        self._set_selected_task_status("In Progress", "в работе")
+
+    def _set_selected_task_status(self, target_status, status_label):
+        """Установить выбранной задаче указанный статус."""
         selected = self.task_table.selectedItems()
         if not selected:
-            QMessageBox.warning(self, "Внимание", "Выберите задачу для завершения!")
+            QMessageBox.warning(self, "Внимание", "Выберите задачу для изменения статуса!")
             return
 
         row = selected[0].row()
@@ -1164,12 +1197,13 @@ class TaskTrackerApp(QMainWindow):
         task_id = self.tasks[row]["id"]
         current_status = self.tasks[row].get("status")
 
-        if current_status == "Done":
-            QMessageBox.information(self, "Информация", "Задача уже завершена.")
+        if current_status == target_status:
+            QMessageBox.information(self, "Информация", f"Задача уже в статусе: {status_label}.")
             return
 
-        self._mark_task_complete(task_id)
-        QMessageBox.information(self, "Успех", f"Задача #{task_id} отмечена как выполненная!")
+        update_task(task_id, "status", target_status)
+        self.apply_filters()
+        QMessageBox.information(self, "Успех", f"Задача #{task_id} переведена в статус: {status_label}.")
 
     def edit_selected_task(self):
         """Редактировать выбранную задачу."""
