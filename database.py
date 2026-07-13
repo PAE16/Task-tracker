@@ -209,6 +209,7 @@ def get_all_tasks(filters=None):
     params = []
 
     if filters:
+        # Собираем WHERE по частям, чтобы не плодить кучу почти одинаковых запросов.
         if filters.get("assignee"):
             query += " AND t.assignee = ?"
             params.append(filters["assignee"])
@@ -260,6 +261,7 @@ def add_task(project_id, description, assignee, priority, status, deadline):
     created_at = datetime.now().strftime("%Y-%m-%d")
     completed_at = None
     if status == "Done":
+        # Если создаём задачу сразу как Done, сразу проставляем completed_at.
         completed_at = created_at
 
     cursor.execute("""
@@ -282,9 +284,11 @@ def update_task(task_id, field, value):
     cursor = conn.cursor()
 
     if field == "status" and value == "Done":
+        # Переход в Done: фиксируем дату закрытия.
         cursor.execute("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?",
                        (value, datetime.now().strftime("%Y-%m-%d"), task_id))
     elif field == "status" and value != "Done":
+        # Вернули задачу из Done — очищаем дату закрытия.
         cursor.execute("UPDATE tasks SET status = ?, completed_at = NULL WHERE id = ?",
                        (value, task_id))
     else:
@@ -308,6 +312,7 @@ def get_analytics_data():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Отдаём уже посчитанные агрегаты, чтобы UI просто рисовал графики.
     # Загруженность исполнителей
     cursor.execute("""
         SELECT assignee, COUNT(*) as count FROM tasks GROUP BY assignee ORDER BY count DESC

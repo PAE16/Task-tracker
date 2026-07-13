@@ -6,7 +6,7 @@ import sys
 import os
 from pathlib import Path
 
-# Получить корневую директорию проекта
+# Базовые пути проекта держим рядом, чтобы сборка была предсказуемой.
 ROOT_DIR = Path(__file__).parent
 DIST_DIR = ROOT_DIR / "dist"
 BUILD_DIR = ROOT_DIR / "build"
@@ -14,7 +14,7 @@ BUILD_DIR = ROOT_DIR / "build"
 def build_app():
     """Собрать приложение в standalone executable."""
     
-    # Параметры для PyInstaller
+    # Минимальный набор параметров для one-file сборки.
     args = [
         str(ROOT_DIR / "main.py"),
         f"--name=TaskTracker",
@@ -34,16 +34,16 @@ def build_app():
     print(f"📁 Рабочая директория: {ROOT_DIR}")
     print(f"📦 Выходная директория: {DIST_DIR}")
     
-    # Перейти в корневую директорию проекта
+    # Запускаем сборку строго из корня репы.
     os.chdir(ROOT_DIR)
     
-    # Запустить PyInstaller
+    # Основной шаг сборки.
     PyInstaller.__main__.run(args)
     
     print(f"\n✅ Сборка завершена!")
     print(f"📦 Исполняемый файл находится в: {DIST_DIR}")
     
-    # Информация о платформе
+    # Просто выводим, под какую систему собрали бинарь.
     platform_name = "macOS" if sys.platform == "darwin" else "Windows" if sys.platform == "win32" else "Linux"
     print(f"🖥️  Собрано для: {platform_name}")
 

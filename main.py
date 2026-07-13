@@ -12,11 +12,11 @@ Task Tracker — Система управления проектами
     Windows: pyinstaller --onefile --windowed --name "TaskTracker" main.py
     macOS:   pyinstaller --onefile --windowed --name "TaskTracker" main.py
 """
-# Entrypoint: инициализирует БД, применяет тему и запускает главное окно.
+# Точка входа: поднимаем БД, тему и главное окно.
 import sys
 import os
 
-# Добавляем путь к текущей директории для импорта модулей
+# На случай запуска из другой директории — добавляем путь проекта в импорт.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt5.QtWidgets import QApplication
@@ -29,18 +29,17 @@ from theme import apply_theme
 
 def main():
     """Главная точка входа в приложение."""
-    # Инициализация базы данных
+    # База должна быть готова до старта UI.
     init_database()
     seed_data()
 
-    # Эти атрибуты должны быть выставлены до создания QApplication.
+    # Важно выставить до QApplication, иначе часть настроек игнорируется.
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
-    # Создание приложения
+    # Создаём приложение и базовые метаданные.
     app = QApplication(sys.argv)
-    # Устанавливаем системный шрифт приложения, чтобы снизить предупреждения
-    # о недостающих семействах и сделать рендер стабильным на macOS/Windows.
+    # Единый шрифт = стабильный рендер и меньше шумных предупреждений по семействам.
     app.setFont(QFont("Helvetica Neue", 11))
     app.setOrganizationName("TaskTracker")
     app.setApplicationName("Task Tracker")
@@ -51,7 +50,7 @@ def main():
     theme_mode = str(settings.value("appearance/theme", "system"))
     apply_theme(app, theme_mode)
 
-    # Создание и показ главного окна
+    # Поднимаем основное окно после темы и настроек.
     window = TaskTrackerApp(app, settings)
     window.show()
 

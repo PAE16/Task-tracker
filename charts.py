@@ -74,6 +74,7 @@ def _build_sparse_tick_labels(labels, max_visible=10, keep_tail=2):
     slots_for_head = max(max_visible - keep_tail, 1)
     step = max(int(np.ceil(head_count / slots_for_head)), 1)
 
+    # Оставляем хвост (последние периоды) всегда видимым — он обычно самый важный.
     sparse = []
     for idx, label in enumerate(labels):
         in_tail = idx >= total - keep_tail
@@ -95,7 +96,7 @@ def _format_week_range_label(week_key):
         year = int(year_part)
         week = int(week_part)
 
-        # %W: неделя начинается с понедельника, 00..53 (совместимо с SQLite strftime('%W')).
+        # Тут совпадаем с SQLite strftime('%W'), чтобы подписи не расходились с данными.
         monday = datetime.strptime(f"{year} {week} 1", "%Y %W %w").date()
         sunday = monday + timedelta(days=6)
 
@@ -348,6 +349,7 @@ class ClosedTasksTimelineChart(ChartWindow):
         colors = theme_data(get_active_theme_mode())
         _apply_axis_theme(ax, colors)
 
+        # Один график, но с переключателем масштаба: неделя/месяц.
         if self.period_combo.currentIndex() == 0:
             data = self.week_data
             title = "Закрытые задачи по неделям"
@@ -373,7 +375,7 @@ class ClosedTasksTimelineChart(ChartWindow):
             color=colors["chart_blue"], label="Фактические данные")
         ax.fill_between(x_positions, values, alpha=0.25, color=colors["chart_blue"])
 
-        # Прогноз
+        # Прогноз рисуем только если есть хотя бы минимальная история.
         if len(values) >= 2:
             forecast_x, forecast_y = self._calculate_forecast(values)
             if forecast_x:
@@ -410,6 +412,7 @@ class ClosedTasksTimelineChart(ChartWindow):
         # Линейная регрессия
         slope, intercept = np.polyfit(x, y, 1)
 
+        # Специально короткий горизонт — так меньше шума и ложной точности.
         # Прогноз на 2 периода вперёд
         forecast_x = [n, n + 1]
         forecast_y = [max(0, slope * fx + intercept) for fx in forecast_x]

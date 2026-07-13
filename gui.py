@@ -757,6 +757,7 @@ class TaskTrackerApp(QMainWindow):
         self.projects = get_all_projects()
         self.assignees = get_all_assignees()
 
+        # Диалоги не пересоздаём, просто обновляем для них источники данных.
         self.create_dialog.refresh_sources()
         self.filter_dialog.refresh_sources()
 
@@ -791,6 +792,7 @@ class TaskTrackerApp(QMainWindow):
         
         for col, proportion in enumerate(proportions):
             new_width = int(total_width * proportion)
+            # Не даём колонкам схлопнуться ниже минимально читаемой ширины.
             header.resizeSection(col, max(new_width, min_widths[col]))
 
     def resizeEvent(self, event):
@@ -835,6 +837,7 @@ class TaskTrackerApp(QMainWindow):
             horizontal_padding = 12
             vertical_padding = 3
 
+            # Ужимаем шрифт, пока бейдж не поместится в колонку.
             while font_px > 8:
                 metrics = QFontMetrics(badge_font)
                 badge_width = metrics.horizontalAdvance(badge_text) + horizontal_padding * 2
@@ -939,6 +942,7 @@ class TaskTrackerApp(QMainWindow):
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
 
+        # Блокируем кнопки, если действие не меняет текущий статус.
         can_set_in_progress = False
         can_complete = False
         if has_selection:
@@ -1006,10 +1010,12 @@ class TaskTrackerApp(QMainWindow):
                     return None
 
             if sort_key == "priority":
+                # Свой порядок важности, а не алфавитный.
                 priority_order = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
                 return priority_order.get(str(raw_value or ""), None)
 
             if sort_key == "status":
+                # Логичный рабочий поток: To Do -> In Progress -> Done.
                 status_order = {"To Do": 0, "In Progress": 1, "Done": 2}
                 return status_order.get(str(raw_value or ""), None)
 

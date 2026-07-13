@@ -6,7 +6,7 @@
 
 from PyQt5.QtGui import QPalette, QColor
 
-# Светлая палитра (единственная тема)
+# Одна фиксированная палитра: светлая тема без переключения.
 LIGHT_THEME = {
     "window": "#f5f2eb",           # Основной фон окна
     "surface": "#ffffff",          # Фон поверхности (таблица, диалоги)
@@ -87,13 +87,13 @@ def stylesheet_for(mode="light"):
     colors = LIGHT_THEME
     
     return f"""
-        /* Основные элементы */
+        /* База интерфейса */
         QMainWindow, QDialog {{
             background-color: {colors['window']};
             color: {colors['text']};
         }}
         
-        /* Виджеты */
+        /* Обычные виджеты */
         QWidget {{
             background-color: {colors['window']};
             color: {colors['text']};
@@ -118,7 +118,7 @@ def stylesheet_for(mode="light"):
             color: {colors['selection_text']};
         }}
         
-        /* Текстовые поля */
+        /* Поля ввода */
         QLineEdit, QComboBox, QDateEdit {{
             background-color: {colors['surface']};
             color: {colors['text']};
@@ -128,7 +128,7 @@ def stylesheet_for(mode="light"):
             selection-background-color: {colors['accent']};
         }}
         
-        /* Таблица */
+        /* Таблица задач */
         QTableWidget {{
             background-color: {colors['surface']};
             alternate-background-color: {colors['surface_alt']};
@@ -177,12 +177,12 @@ def stylesheet_for(mode="light"):
             color: {colors['accent']};
         }}
         
-        /* Метки */
+        /* Подписи */
         QLabel {{
             color: {colors['text']};
         }}
         
-        /* Менюбар */
+        /* Верхнее меню */
         QMenuBar {{
             background-color: {colors['surface_alt']};
             color: {colors['text']};
@@ -194,7 +194,7 @@ def stylesheet_for(mode="light"):
             color: {colors['selection_text']};
         }}
         
-        /* Меню */
+        /* Пункты меню */
         QMenu {{
             background-color: {colors['surface']};
             color: {colors['text']};
@@ -206,7 +206,7 @@ def stylesheet_for(mode="light"):
             color: {colors['selection_text']};
         }}
         
-        /* Чекбоксы и радио-кнопки */
+        /* Чекбоксы и радиокнопки */
         QCheckBox, QRadioButton {{
             color: {colors['text']};
         }}
@@ -220,7 +220,7 @@ def stylesheet_for(mode="light"):
             background-color: {colors['accent']};
         }}
         
-        /* Скроллбары */
+        /* Скроллы */
         QScrollBar:vertical, QScrollBar:horizontal {{
             background-color: {colors['surface_alt']};
             border: none;
@@ -235,7 +235,7 @@ def stylesheet_for(mode="light"):
             background-color: {colors['text_muted']};
         }}
         
-        /* Сообщения об ошибках */
+        /* Окна сообщений */
         QMessageBox {{
             background-color: {colors['window']};
         }}
@@ -288,5 +288,5 @@ def get_active_theme_mode():
     return "light"
 
 
-# Константы (для совместимости)
+# Оставлено для обратной совместимости.
 THEME_MODES = ["light"]
